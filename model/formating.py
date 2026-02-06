@@ -128,18 +128,43 @@ class GraphConstructor:
         Y = V.dot(L)
         return Y, evals[evals > 0]
     
-    def run_cmd(self, n_components = 30):
+    def run_cmd(self, n_components = 30, target_variance = 90, max_dim = 200):
         import numpy as np
-        from sklearn.decomposition import PCA
 
 
+        #mds
         projection, evals = self.cmdscale(self.wide_matrix)
+        
+        #ummulative var
+        total_variance = np.sum(evals)
+        cumulative_variance = np.cumsum(evals) / total_variance
+        
+        #Print variance for specific checkpoints
+        checkpoints = [30, 40, 50, 70, 90, 100, 120,150]
+        print("--- MDS Variance Analysis ---")
+        for cp in checkpoints:
+            if cp <= len(cumulative_variance):
+                var = cumulative_variance[cp-1] * 100
+                print(f"Dimensions: {cp} | Explained Variance: {var:.2f}%")
+        
+
+        suggested_dim = np.where(cumulative_variance >= target_variance)[0]
+        
+        if len(suggested_dim) > 0:
+            n_components = suggested_dim[0] + 1 # +1 for 0-based indexing
+            print(f"Target of {target_variance*100}% reached at {n_components} dimensions.")
+        else:
+            n_components = max_dim
+            print(f"Target variance not reached within limits. Using max_dim: {max_dim}")
+
+        n_components = min(n_components, max_dim)
+        
+        # 5. Finalize projection
         graph_base = pd.DataFrame(projection)
-        graph_base = graph_base.iloc[:, :n_components]
-
-
-        self.graph_base = graph_base
-        return graph_base
+        self.graph_base = graph_base.iloc[:, :n_components]
+        
+        print(f"Final Graph Base shape: {self.graph_base.shape}")
+        return self.graph_base
     
     def run_knn(self, k=1):
         from sklearn.neighbors import kneighbors_graph
@@ -266,7 +291,7 @@ def get_freatures(FEATURES, cluster, DBGWAS_FEATURES, amr_pheno):
     samples = [s for s in samples if s not in missing_samples]
 
     #get the first 50. Remove this in actual analysis
-    features_as_ints = features_as_ints[0:100000] #remove this later
+    features_as_ints = features_as_ints[0:300000] #remove this later
     #read_features
     replicating_features =  [int(feature) for feature in features_as_ints]
     all_features = set(range(0,5458393))
@@ -281,6 +306,19 @@ def get_freatures(FEATURES, cluster, DBGWAS_FEATURES, amr_pheno):
     feature_names = list(replicating_features_frame.index)
 
     return replicating_features_frame,samples,feature_names 
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
